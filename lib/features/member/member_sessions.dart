@@ -498,16 +498,14 @@ class _MemberSessionsState extends State<MemberSessions> {
                   }
                 }
 
-                // Filtrage strict :
+                // Filtrage robuste :
                 // 1. Séance active et NON annulée
-                // 2. Jour sélectionné exact
-                // 3. Date et heure STRICTEMENT dans le futur (pas passée ni terminée)
-                // 4. Places restantes > 0 (si complète, exclue sauf si l'adhérent y est déjà inscrit)
-                // 5. Filtre catégorie
-                final filteredList = allSessions.where((s) {
+                // 2. Jour sélectionné exact, avec fallback sur les séances à venir si vide
+                // 3. Catégorie et places disponibles
+                var filteredList = allSessions.where((s) {
                   if (!s.active || s.isCancelled) return false;
                   if (!_sameDay(s.startAt, _selectedDate)) return false;
-                  if (!s.startAt.isAfter(now) || s.isFinished) return false;
+                  if (s.isFinished) return false;
 
                   final isUserEnrolled = reservedIds.contains(s.id) ||
                       s.isMemberEnrolled(currentUserId);
@@ -516,6 +514,37 @@ class _MemberSessionsState extends State<MemberSessions> {
                   if (_filter != 'Tous' && s.category != _filter) return false;
                   return true;
                 }).toList();
+
+                if (filteredList.isEmpty && allSessions.isNotEmpty) {
+                  final futureSessions = allSessions.where((s) => s.active && !s.isCancelled && !s.isFinished).toList();
+                  if (futureSessions.isNotEmpty) {
+                    futureSessions.sort((a, b) => a.startAt.compareTo(b.startAt));
+                    final nextDate = futureSessions.first.startAt;
+                    if (!_sameDay(_selectedDate, nextDate)) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          setState(() {
+                            _selectedDate = DateTime(nextDate.year, nextDate.month, nextDate.day);
+                          });
+                        }
+                      });
+                    }
+                  }
+                }
+
+                if (filteredList.isEmpty) {
+                  filteredList = allSessions.where((s) {
+                    if (!s.active || s.isCancelled || s.isFinished) return false;
+                    if (!s.startAt.isAfter(now.subtract(const Duration(hours: 2)))) return false;
+
+                    final isUserEnrolled = reservedIds.contains(s.id) ||
+                        s.isMemberEnrolled(currentUserId);
+                    if (s.spotsLeft <= 0 && !isUserEnrolled) return false;
+
+                    if (_filter != 'Tous' && s.category != _filter) return false;
+                    return true;
+                  }).toList();
+                }
 
                 filteredList.sort((a, b) => a.startAt.compareTo(b.startAt));
 

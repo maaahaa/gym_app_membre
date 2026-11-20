@@ -9,9 +9,12 @@ class SessionRepository {
 
   Stream<List<Session>> getSessionsStream() {
     return _db.collection('sessions').snapshots().map((snapshot) {
-      final sessions = snapshot.docs
-          .map((doc) => Session.fromMap(doc.id, doc.data()))
-          .toList();
+      final sessions = <Session>[];
+      for (final doc in snapshot.docs) {
+        try {
+          sessions.add(Session.fromMap(doc.id, doc.data()));
+        } catch (_) {}
+      }
 
       sessions.sort((a, b) {
         final aDate = a.startAt;

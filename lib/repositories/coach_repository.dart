@@ -8,7 +8,11 @@ class CoachRepository {
   final FirebaseFirestore _db;
 
   Stream<List<Coach>> getCoachesStream() {
-    return _db.collection('coaches').snapshots().map((snapshot) {
+    return _db
+        .collection('users')
+        .where('role', whereIn: ['coach', 'coache', 'Coach', 'Coache'])
+        .snapshots()
+        .map((snapshot) {
       return snapshot.docs
           .map((doc) => Coach.fromMap(doc.id, doc.data()))
           .toList();
@@ -17,7 +21,7 @@ class CoachRepository {
 
   Stream<Coach?> getCoachStream(String coachId) {
     if (coachId.isEmpty) return Stream.value(null);
-    return _db.collection('coaches').doc(coachId).snapshots().map((doc) {
+    return _db.collection('users').doc(coachId).snapshots().map((doc) {
       if (!doc.exists || doc.data() == null) return null;
       return Coach.fromMap(doc.id, doc.data()!);
     });
